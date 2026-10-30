@@ -322,6 +322,18 @@ function ChapterListing:updateItems()
     self.item_table = self:generateItemTableFromChapters(self.chapters)
     self.multilines_show_more_text = false
     self.items_per_page = nil
+    if #self.item_table == 0 and ChapterListing.isHideReadEnabled() then
+      -- Every chapter was filtered out by the "hide read" toggle.
+      self.item_table = {
+        {
+          text = _("All chapters are read") .. ". " .. _("Use the menu to show read chapters."),
+          dim = true,
+          select_enabled = false,
+        }
+      }
+      self.multilines_show_more_text = true
+      self.items_per_page = 1
+    end
   else
     self.item_table = self:generateEmptyViewItemTable()
     self.multilines_show_more_text = true
@@ -356,6 +368,13 @@ function ChapterListing:generateEmptyViewItemTable()
   }
 end
 
+--- Whether read chapters should be hidden from the chapter listing.
+--- Global preference, shared by every manga.
+--- @return boolean
+function ChapterListing.isHideReadEnabled()
+  return G_reader_settings:isTrue("rakuyomi_hide_read_chapters")
+end
+
 --- @private
 function ChapterListing:generateItemTableFromChapters(chapters)
   -- Filter chapters by selected scanlator
@@ -368,6 +387,19 @@ function ChapterListing:generateItemTableFromChapters(chapters)
         table.insert(filtered_chapters, chapter)
       end
     end
+  end
+
+  -- Optionally hide chapters already marked as read. This only affects what is
+  -- displayed: `self.chapters` stays intact so Resume / Next Chapter / downloads
+  -- keep working against the full list.
+  if ChapterListing.isHideReadEnabled() then
+    local unread_chapters = {}
+    for __, chapter in ipairs(filtered_chapters) do
+      if not chapter.read then
+        table.insert(unread_chapters, chapter)
+      end
+    end
+    filtered_chapters = unread_chapters
   end
 
   local indexed = {}
@@ -1262,6 +1294,33 @@ function ChapterListing:openMenu()
     })
   end
 
+  -- Toggle for hiding read chapters (global preference) and for flipping the
+  -- chapter sort order (persisted as the global "Chapter sorting mode" setting).
+  local hide_read = ChapterListing.isHideReadEnabled()
+  local ascending = self.chapter_sorting_mode == 'chapter_ascending'
+  table.insert(buttons, {
+    {
+      text = Icons.FA_FILTER .. " " .. (hide_read and _("Show read chapters") or _("Hide read chapters")),
+      callback = function()
+        UIManager:close(dialog)
+        G_reader_settings:saveSetting("rakuyomi_hide_read_chapters", not hide_read)
+        G_reader_settings:flush()
+        self:updateItems()
+        UIManager:show(InfoMessage:new {
+          text = hide_read and _("Showing read chapters") or _("Hiding read chapters"),
+          timeout = 1,
+        })
+      end
+    },
+    {
+      text = Icons.FA_LIST .. " " .. (ascending and _("Sort: newest first") or _("Sort: oldest first")),
+      callback = function()
+        UIManager:close(dialog)
+        self:toggleChapterSorting()
+      end
+    }
+  })
+
   dialog = ButtonDialog:new {
     buttons = buttons,
   }
@@ -1273,6 +1332,34 @@ function ChapterListing:openTrackingMenu()
   TrackingMenu.openTrackingMenu(self.manga, function()
     self:updateChapterList()
   end)
+end
+
+--- Flips the chapter sort order for this listing and persists it as the
+--- global "Chapter sorting mode" setting so the choice sticks for every manga.
+function ChapterListing:toggleChapterSorting()
+  local new_mode = self.chapter_sorting_mode == 'chapter_ascending'
+      and 'chapter_descending' or 'chapter_ascending'
+
+  self.chapter_sorting_mode = new_mode
+  self.page = 1
+  self:updateItems()
+
+  local response = Backend.getSettings()
+  if response.type == 'SUCCESS' then
+    local settings = response.body
+    settings.chapter_sorting_mode = new_mode
+    local save_response = Backend.setSettings(settings)
+    if save_response.type == 'ERROR' then
+      ErrorDialog:show(_("Failed to save sorting mode") .. ": " .. save_response.message)
+    end
+  else
+    ErrorDialog:show(_("Failed to save sorting mode") .. ": " .. response.message)
+  end
+
+  UIManager:show(InfoMessage:new {
+    text = new_mode == 'chapter_ascending' and _("Sorted oldest first") or _("Sorted newest first"),
+    timeout = 1,
+  })
 end
 
 function ChapterListing:addToLibrary()
