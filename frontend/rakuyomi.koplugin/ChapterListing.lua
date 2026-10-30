@@ -758,6 +758,10 @@ function ChapterListing:refreshChapters()
       return
     end
 
+    -- Drop the cached chapter objects so `updateChapterList` reloads them from
+    -- the backend; otherwise read/download state (and newly added chapters)
+    -- from the refresh would never reach the listing.
+    self.raw_chapters = {}
     self:updateChapterList()
   end)
 end
@@ -1340,21 +1344,25 @@ function ChapterListing:toggleChapterSorting()
   local new_mode = self.chapter_sorting_mode == 'chapter_ascending'
       and 'chapter_descending' or 'chapter_ascending'
 
+  -- Persist first so the listing never shows an order that newly opened
+  -- listings would not use.
+  local response = Backend.getSettings()
+  if response.type == 'ERROR' then
+    ErrorDialog:show(_("Failed to save sorting mode") .. ": " .. response.message)
+    return
+  end
+
+  local settings = response.body
+  settings.chapter_sorting_mode = new_mode
+  local save_response = Backend.setSettings(settings)
+  if save_response.type == 'ERROR' then
+    ErrorDialog:show(_("Failed to save sorting mode") .. ": " .. save_response.message)
+    return
+  end
+
   self.chapter_sorting_mode = new_mode
   self.page = 1
   self:updateItems()
-
-  local response = Backend.getSettings()
-  if response.type == 'SUCCESS' then
-    local settings = response.body
-    settings.chapter_sorting_mode = new_mode
-    local save_response = Backend.setSettings(settings)
-    if save_response.type == 'ERROR' then
-      ErrorDialog:show(_("Failed to save sorting mode") .. ": " .. save_response.message)
-    end
-  else
-    ErrorDialog:show(_("Failed to save sorting mode") .. ": " .. response.message)
-  end
 
   UIManager:show(InfoMessage:new {
     text = new_mode == 'chapter_ascending' and _("Sorted oldest first") or _("Sorted newest first"),
