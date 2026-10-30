@@ -323,10 +323,11 @@ function ChapterListing:updateItems()
     self.multilines_show_more_text = false
     self.items_per_page = nil
     if #self.item_table == 0 and ChapterListing.isHideReadEnabled() then
-      -- Every chapter was filtered out by the "hide read" toggle.
+      -- Every chapter in the current view (after language / scanlator
+      -- filtering) was filtered out by the "hide read" toggle.
       self.item_table = {
         {
-          text = _("All chapters are read") .. ". " .. _("Use the menu to show read chapters."),
+          text = _("No unread chapters in the current list") .. ". " .. _("Use the menu to show read chapters."),
           dim = true,
           select_enabled = false,
         }
