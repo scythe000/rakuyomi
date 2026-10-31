@@ -759,12 +759,20 @@ function ChapterListing:refreshChapters()
       return
     end
 
-    -- Drop the cached chapter objects so `updateChapterList` reloads them from
-    -- the backend; otherwise read/download state (and newly added chapters)
-    -- from the refresh would never reach the listing.
-    self.raw_chapters = {}
     self:updateChapterList()
   end)
+end
+
+--- Reloads the cached chapter list after a bulk mark read / unread. When the
+--- hide-read filter is active, the stale in-memory `read` flags would leave
+--- newly read chapters visible (or newly unread ones hidden), so the cache is
+--- dropped before refreshing; otherwise the regular refresh path is unchanged.
+--- @private
+function ChapterListing:refreshAfterBulkMark()
+  if ChapterListing.isHideReadEnabled() then
+    self.raw_chapters = {}
+  end
+  self:refreshChapters()
 end
 
 --- @param manga Manga
@@ -1215,7 +1223,7 @@ function ChapterListing:openMenu()
           UIManager:close(dialog)
 
           ChapterListing:openMarkDialog(self.manga, true, function()
-            self:refreshChapters()
+            self:refreshAfterBulkMark()
           end)
         end
       },
@@ -1225,7 +1233,7 @@ function ChapterListing:openMenu()
           UIManager:close(dialog)
 
           ChapterListing:openMarkDialog(self.manga, false, function()
-            self:refreshChapters()
+            self:refreshAfterBulkMark()
           end)
         end
       }
