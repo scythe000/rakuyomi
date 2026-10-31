@@ -49,4 +49,21 @@ rakuyomi will open the selected chapter in KOReader's reader. To return to rakuy
 After reaching the last page of a chapter, rakuyomi will automatically download and open the next chapter when you attempt to navigate forward. This seamless transition allows you to continue reading without interruption!
 ```
 
+## Launching straight into rakuyomi
+
+If you mostly use KOReader for manga, you can skip the File Manager entirely. Create an empty file named `.autostart` inside rakuyomi's home directory (the folder containing `settings.json`, e.g. `koreader/rakuyomi/`) right before starting KOReader, and rakuyomi will open its **Library** as soon as KOReader is up. The file is removed on startup, so a normal KOReader launch afterwards behaves as usual, and markers older than two minutes are ignored.
+
+On a jailbroken Kindle with KPM, for example, a second scriptlet in `documents/` next to `KOReader.sh` does the job:
+
+```sh
+#!/bin/sh
+# Name: Rakuyomi
+# DontUseFBInk
+
+touch /mnt/us/koreader/rakuyomi/.autostart
+/var/local/kmc/bin/kpm launch koreader --asap
+```
+
+The same idea works with a KUAL entry or any other launcher that can run a shell command before `koreader.sh`.
+
 Congratulations! You're now ready to enjoy manga using rakuyomi. For an enhanced reading experience specifically tailored for manga, check out the [reader's recommended settings](./reader-recommended-settings/) to optimize page navigation, image scaling, and other important display options.
