@@ -40,9 +40,18 @@ local Rakuyomi = InputContainer:extend({
 function Rakuyomi:init()
   if self.ui.name == "ReaderUI" then
     MangaReader:initializeFromReaderUI(self.ui)
+    -- KOReader was started straight into a document (e.g. "start with: last
+    -- file"). The library cannot be opened on top of the reader, so just
+    -- discard the marker; otherwise it would fire the next time the file
+    -- manager is shown.
+    self:takeAutostartMarker()
   else
     self.ui.menu:registerToMainMenu(self)
-    self:consumeAutostartMarker()
+    if self:takeAutostartMarker() then
+      UIManager:nextTick(function()
+        self:openLibraryView()
+      end)
+    end
   end
 
   CbzDocument:register(DocumentRegistry)
@@ -57,29 +66,32 @@ function Rakuyomi:init()
   Testing:emitEvent('initialized')
 end
 
---- Opens the library view on the next UI tick if a launcher left an autostart
---- marker in Rakuyomi's home directory. The marker is always removed; stale
---- ones are discarded without opening anything.
+--- Removes the autostart marker left by a launcher, if any, and reports
+--- whether it should be acted upon. Stale markers, and markers that could not
+--- be removed (so they would fire again on every start), are discarded.
 --- @private
-function Rakuyomi:consumeAutostartMarker()
+--- @return boolean fresh True if a fresh marker was found and removed.
+function Rakuyomi:takeAutostartMarker()
   local marker = Paths.getHomeDirectory() .. AUTOSTART_MARKER
   local attributes = lfs.attributes(marker)
   if attributes == nil then
-    return
+    return false
   end
 
-  os.remove(marker)
+  local removed, remove_error = os.remove(marker)
+  if not removed then
+    logger.warn("rakuyomi: could not remove autostart marker", marker, remove_error)
+    return false
+  end
 
   local age = os.time() - (attributes.modification or 0)
   if age > AUTOSTART_MAX_AGE_SECONDS then
     logger.info("rakuyomi: ignoring stale autostart marker", marker, "age", age)
-    return
+    return false
   end
 
-  logger.info("rakuyomi: autostart marker found, opening library view")
-  UIManager:nextTick(function()
-    self:openLibraryView()
-  end)
+  logger.info("rakuyomi: autostart marker found")
+  return true
 end
 
 function Rakuyomi:onStartLibraryView()

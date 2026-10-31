@@ -53,6 +53,10 @@ After reaching the last page of a chapter, rakuyomi will automatically download 
 
 If you mostly use KOReader for manga, you can skip the File Manager entirely. Create an empty file named `.autostart` inside rakuyomi's home directory (the folder containing `settings.json`, e.g. `koreader/rakuyomi/`) right before starting KOReader, and rakuyomi will open its **Library** as soon as KOReader is up. The file is removed on startup, so a normal KOReader launch afterwards behaves as usual, and markers older than two minutes are ignored.
 
+```admonish warning
+This only works when KOReader starts in the File Manager. If KOReader is set to reopen the last document (<i class="fa fa-cog"></i> &rarr; **Start with** &rarr; *Last file*), the marker is discarded and the reader opens as usual; set **Start with** to *File browser* to use this shortcut.
+```
+
 On a jailbroken Kindle with KPM, for example, a second scriptlet in `documents/` next to `KOReader.sh` does the job:
 
 ```sh
@@ -60,6 +64,7 @@ On a jailbroken Kindle with KPM, for example, a second scriptlet in `documents/`
 # Name: Rakuyomi
 # DontUseFBInk
 
+mkdir -p /mnt/us/koreader/rakuyomi
 touch /mnt/us/koreader/rakuyomi/.autostart
 /var/local/kmc/bin/kpm launch koreader --asap
 ```
